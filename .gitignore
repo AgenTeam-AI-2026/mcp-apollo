@@ -6,17 +6,22 @@ dist/
 
 # Cloudflare Workers
 .wrangler/
-
-# Environment / secrets — never commit these
 .dev.vars
+
+# Environment
 .env
 .env.local
-
-# OS
-.DS_Store
-Thumbs.db
+.env.*.local
 
 # Editor
 .vscode/
 .idea/
 *.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test output
+coverage/

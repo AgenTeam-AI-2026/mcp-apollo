@@ -1,12 +1,12 @@
 name = "mcp-apollo"
 main = "src/index.ts"
-compatibility_date = "2024-11-01"
+compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 
 [observability]
 enabled = true
 
-# Uncomment and set after first deploy to use a custom domain:
+# Uncomment to set a custom domain after first deployment:
 # [[routes]]
 # pattern = "mcp-apollo.agenteamai.com"
 # zone_name = "agenteamai.com"
