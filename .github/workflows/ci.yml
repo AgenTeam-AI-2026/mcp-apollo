@@ -19,10 +19,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # Note: switch to cache: 'npm' once package-lock.json is committed
+          # cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        # Using npm install (not npm ci) until package-lock.json is committed.
+        # To fix: run `npm install` locally, commit the generated package-lock.json,
+        # then change this line to `npm ci` and re-enable cache above.
+        run: npm install
 
       - name: Typecheck
         run: npm run typecheck
