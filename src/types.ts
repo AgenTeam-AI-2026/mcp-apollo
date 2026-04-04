@@ -1,4 +1,4 @@
-// ─── Apollo API Response Types ───────────────────────────────────────────────
+// ─── Apollo API Response Types ──────────────────────────────────────────────
 
 export interface ApolloEmailStatus {
   value: string | null;
@@ -67,7 +67,7 @@ export interface ApolloPagination {
   total_pages: number;
 }
 
-// ─── Search Response Types ────────────────────────────────────────────────────
+// ─── Search Response Types ───────────────────────────────────────────────────
 
 export interface ApolloSearchPeopleResponse {
   people: ApolloPerson[];
