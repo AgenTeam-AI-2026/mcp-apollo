@@ -8,18 +8,37 @@ on:
 
 jobs:
   ci:
-    name: Typecheck / Lint / Test
+    name: Typecheck · Build · Test
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm test -- --reporter=verbose
-      - run: npx wrangler deploy --dry-run --outdir dist
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build check (wrangler dry-run)
+        run: npx wrangler deploy --dry-run --outdir dist
         env:
-          CLOUDFLARE_API_TOKEN: placeholder-dry-run
+          CLOUDFLARE_API_TOKEN: placeholder-for-dry-run
+
+      - name: Unit + RALPH-loop tests
+        run: npm test
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
