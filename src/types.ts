@@ -1,63 +1,79 @@
-// ─── Apollo API Response Types ──────────────────────────────────────────────
+/**
+ * TypeScript types for Apollo.io API responses.
+ * Based on Apollo.io REST API v1 documentation.
+ */
 
-export interface ApolloEmailStatus {
-  value: string | null;
-  status: 'verified' | 'unverified' | 'likely_to_engage' | null;
+export interface ApolloPhoneNumber {
+  raw_number: string;
+  sanitized_number: string;
+  type?: string;
+  status?: string;
 }
 
-export interface ApolloOrganization {
+export interface ApolloOrganizationSummary {
   id: string;
   name: string;
-  website_url: string | null;
-  linkedin_url: string | null;
-  primary_domain: string | null;
-  industry: string | null;
-  estimated_num_employees: number | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  founded_year: number | null;
-  short_description: string | null;
-  funding_stage: string | null;
-  total_funding: number | null;
-  latest_funding_stage: string | null;
-  latest_funding_round_date: string | null;
-  logo_url: string | null;
-  technologies: string[];
+  website_url?: string;
+  linkedin_url?: string;
+  estimated_num_employees?: number;
+  primary_domain?: string;
 }
 
-export interface ApolloPerson {
+export interface ApolloEmploymentHistory {
+  _id: string;
+  organization_name?: string;
+  title?: string;
+  start_date?: string;
+  end_date?: string;
+  current?: boolean;
+}
+
+export interface ApolloPersonResult {
   id: string;
-  first_name: string | null;
-  last_name: string | null;
-  name: string | null;
-  linkedin_url: string | null;
-  title: string | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  email: string | null;
-  email_status: string | null;
-  phone_numbers: Array<{ raw_number: string; type: string | null }> | null;
-  organization: ApolloOrganization | null;
-  employment_history: Array<{
-    title: string | null;
-    organization_name: string | null;
-    start_date: string | null;
-    end_date: string | null;
-    current: boolean;
-  }> | null;
+  first_name: string;
+  last_name: string;
+  name: string;
+  title?: string;
+  email?: string;
+  email_status?: "verified" | "unverified" | "likely" | "unavailable" | "unknown";
+  linkedin_url?: string;
+  phone_numbers?: ApolloPhoneNumber[];
+  city?: string;
+  state?: string;
+  country?: string;
+  organization?: ApolloOrganizationSummary;
+  employment_history?: ApolloEmploymentHistory[];
+}
+
+export interface ApolloOrganizationResult {
+  id: string;
+  name: string;
+  website_url?: string;
+  primary_domain?: string;
+  linkedin_url?: string;
+  estimated_num_employees?: number;
+  industry?: string;
+  keywords?: string[];
+  city?: string;
+  state?: string;
+  country?: string;
+  founded_year?: number;
+  total_funding?: number;
+  latest_funding_stage?: string;
+  latest_funding_round_date?: string;
+  technologies?: string[];
+  short_description?: string;
 }
 
 export interface ApolloJobPosting {
   id: string;
-  title: string | null;
-  url: string | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  last_seen_at: string | null;
-  posted_at: string | null;
+  title: string;
+  url?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  posted_at?: string;
+  updated_at?: string;
 }
 
 export interface ApolloPagination {
@@ -67,25 +83,22 @@ export interface ApolloPagination {
   total_pages: number;
 }
 
-// ─── Search Response Types ───────────────────────────────────────────────────
-
-export interface ApolloSearchPeopleResponse {
-  people: ApolloPerson[];
-  pagination: ApolloPagination;
-  breadcrumbs?: unknown[];
-}
-
-export interface ApolloSearchCompaniesResponse {
-  organizations: ApolloOrganization[];
+export interface ApolloPeopleSearchResponse {
+  people: ApolloPersonResult[];
   pagination: ApolloPagination;
 }
 
-export interface ApolloEnrichPersonResponse {
-  person: ApolloPerson;
+export interface ApolloPersonEnrichResponse {
+  person: ApolloPersonResult;
 }
 
-export interface ApolloEnrichCompanyResponse {
-  organization: ApolloOrganization;
+export interface ApolloCompaniesSearchResponse {
+  organizations: ApolloOrganizationResult[];
+  pagination: ApolloPagination;
+}
+
+export interface ApolloCompanyEnrichResponse {
+  organization: ApolloOrganizationResult;
 }
 
 export interface ApolloJobPostingsResponse {
@@ -96,61 +109,13 @@ export interface ApolloJobPostingsResponse {
 export interface ApolloFindEmailResponse {
   person: {
     id: string;
-    email: string | null;
-    email_status: string | null;
+    email?: string;
+    email_status?: string;
   };
 }
 
-// ─── Error Types ─────────────────────────────────────────────────────────────
-
-export interface ApolloApiError {
-  status: number;
-  error: string;
-  message: string;
-  rateLimitRemaining?: number;
-}
-
-// ─── Tool Input Types ─────────────────────────────────────────────────────────
-
-export interface SearchPeopleInput {
-  person_titles?: string[];
-  person_seniorities?: string[];
-  organization_domains?: string[];
-  person_locations?: string[];
-  organization_num_employees_ranges?: string[];
-  page?: number;
-  per_page?: number;
-}
-
-export interface EnrichPersonInput {
-  email?: string;
-  first_name?: string;
-  last_name?: string;
-  organization_name?: string;
-  linkedin_url?: string;
-}
-
-export interface SearchCompaniesInput {
-  q_organization_keyword_tags?: string[];
-  organization_locations?: string[];
-  organization_num_employees_ranges?: string[];
-  organization_funding_stages?: string[];
-  page?: number;
-  per_page?: number;
-}
-
-export interface EnrichCompanyInput {
-  domain?: string;
-  name?: string;
-}
-
-export interface GetJobPostingsInput {
-  organization_id: string;
-  job_titles?: string[];
-  page?: number;
-  per_page?: number;
-}
-
-export interface FindEmailInput {
-  person_id: string;
+export interface ApolloRateLimitInfo {
+  remaining: number | null;
+  limit: number | null;
+  resetAt: string | null;
 }
