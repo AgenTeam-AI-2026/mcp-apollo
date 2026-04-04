@@ -102,7 +102,8 @@ export function searchPeople(
   const body: Record<string, unknown> = {};
   if (input.person_titles?.length) body['person_titles'] = input.person_titles;
   if (input.person_seniorities?.length) body['person_seniorities'] = input.person_seniorities;
-  if (input.organization_domains?.length) body['q_organization_domains'] = input.organization_domains.join('\n');
+  if (input.organization_domains?.length)
+    body['q_organization_domains'] = input.organization_domains.join('\n');
   if (input.person_locations?.length) body['person_locations'] = input.person_locations;
   if (input.organization_num_employees_ranges?.length)
     body['organization_num_employees_ranges'] = input.organization_num_employees_ranges;
@@ -143,7 +144,12 @@ export function searchCompanies(
     body['organization_funding_stages'] = input.organization_funding_stages;
   body['page'] = input.page ?? 1;
   body['per_page'] = Math.min(input.per_page ?? 10, 25);
-  return apolloRequest<ApolloSearchCompaniesResponse>(apiKey, 'POST', '/mixed_companies/search', body);
+  return apolloRequest<ApolloSearchCompaniesResponse>(
+    apiKey,
+    'POST',
+    '/mixed_companies/search',
+    body
+  );
 }
 
 export function enrichCompany(
@@ -177,10 +183,7 @@ export function findEmail(
   apiKey: string,
   input: FindEmailInput
 ): Promise<ApolloClientResult<ApolloFindEmailResponse>> {
-  return apolloRequest<ApolloFindEmailResponse>(
-    apiKey,
-    'POST',
-    '/people/request_email',
-    { id: input.person_id }
-  );
+  return apolloRequest<ApolloFindEmailResponse>(apiKey, 'POST', '/people/request_email', {
+    id: input.person_id,
+  });
 }
