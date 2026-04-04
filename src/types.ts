@@ -1,72 +1,79 @@
-// ─── Apollo API Response Types ────────────────────────────────────────────────
+/**
+ * TypeScript types for Apollo.io API responses.
+ * Based on Apollo.io REST API v1 documentation.
+ */
 
-export interface ApolloEmail {
-  email: string;
-  email_confidence: number | null;
-  email_status: string | null;
-  email_source: string | null;
-}
-
-export interface ApolloEmployment {
-  organization_name: string | null;
-  title: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  current: boolean;
-}
-
-export interface ApolloPerson {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  name: string | null;
-  title: string | null;
-  headline: string | null;
-  email: string | null;
-  email_status: string | null;
-  phone_numbers: Array<{ raw_number: string; type: string | null }> | null;
-  linkedin_url: string | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  organization: ApolloOrganizationSummary | null;
-  employment_history: ApolloEmployment[] | null;
-  photo_url: string | null;
-  twitter_url: string | null;
+export interface ApolloPhoneNumber {
+  raw_number: string;
+  sanitized_number: string;
+  type?: string;
+  status?: string;
 }
 
 export interface ApolloOrganizationSummary {
-  id: string | null;
-  name: string | null;
-  website_url: string | null;
-  linkedin_url: string | null;
-  primary_domain: string | null;
-  estimated_num_employees: number | null;
-  industry: string | null;
-  city: string | null;
-  country: string | null;
+  id: string;
+  name: string;
+  website_url?: string;
+  linkedin_url?: string;
+  estimated_num_employees?: number;
+  primary_domain?: string;
 }
 
-export interface ApolloOrganization extends ApolloOrganizationSummary {
-  short_description: string | null;
-  founded_year: number | null;
-  total_funding: number | null;
-  latest_funding_stage: string | null;
-  latest_funding_round_date: string | null;
-  technologies: string[] | null;
-  keywords: string[] | null;
-  phone: string | null;
-  blog_url: string | null;
-  facebook_url: string | null;
-  twitter_url: string | null;
+export interface ApolloEmploymentHistory {
+  _id: string;
+  organization_name?: string;
+  title?: string;
+  start_date?: string;
+  end_date?: string;
+  current?: boolean;
+}
+
+export interface ApolloPersonResult {
+  id: string;
+  first_name: string;
+  last_name: string;
+  name: string;
+  title?: string;
+  email?: string;
+  email_status?: "verified" | "unverified" | "likely" | "unavailable" | "unknown";
+  linkedin_url?: string;
+  phone_numbers?: ApolloPhoneNumber[];
+  city?: string;
+  state?: string;
+  country?: string;
+  organization?: ApolloOrganizationSummary;
+  employment_history?: ApolloEmploymentHistory[];
+}
+
+export interface ApolloOrganizationResult {
+  id: string;
+  name: string;
+  website_url?: string;
+  primary_domain?: string;
+  linkedin_url?: string;
+  estimated_num_employees?: number;
+  industry?: string;
+  keywords?: string[];
+  city?: string;
+  state?: string;
+  country?: string;
+  founded_year?: number;
+  total_funding?: number;
+  latest_funding_stage?: string;
+  latest_funding_round_date?: string;
+  technologies?: string[];
+  short_description?: string;
 }
 
 export interface ApolloJobPosting {
   id: string;
-  title: string | null;
-  locations_derived: string[] | null;
-  posted_at: string | null;
-  url: string | null;
+  title: string;
+  url?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  posted_at?: string;
+  updated_at?: string;
 }
 
 export interface ApolloPagination {
@@ -76,21 +83,39 @@ export interface ApolloPagination {
   total_pages: number;
 }
 
-export interface ApolloRateLimitInfo {
-  limit: number | null;
-  remaining: number | null;
-  reset: number | null;
+export interface ApolloPeopleSearchResponse {
+  people: ApolloPersonResult[];
+  pagination: ApolloPagination;
 }
 
-// ─── Internal Error Type ───────────────────────────────────────────────────────
+export interface ApolloPersonEnrichResponse {
+  person: ApolloPersonResult;
+}
 
-export class ApolloError extends Error {
-  constructor(
-    message: string,
-    public readonly statusCode: number,
-    public readonly apolloCode?: string,
-  ) {
-    super(message);
-    this.name = 'ApolloError';
-  }
+export interface ApolloCompaniesSearchResponse {
+  organizations: ApolloOrganizationResult[];
+  pagination: ApolloPagination;
+}
+
+export interface ApolloCompanyEnrichResponse {
+  organization: ApolloOrganizationResult;
+}
+
+export interface ApolloJobPostingsResponse {
+  job_postings: ApolloJobPosting[];
+  pagination: ApolloPagination;
+}
+
+export interface ApolloFindEmailResponse {
+  person: {
+    id: string;
+    email?: string;
+    email_status?: string;
+  };
+}
+
+export interface ApolloRateLimitInfo {
+  remaining: number | null;
+  limit: number | null;
+  resetAt: string | null;
 }

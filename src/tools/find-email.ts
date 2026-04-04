@@ -1,41 +1,40 @@
 import { z } from 'zod';
-import { ApolloClient } from '../apollo-client.js';
+import { findEmail } from '../apollo-client.js';
 
 export const findEmailSchema = z.object({
-  person_id: z.string().describe(
-    'Apollo person ID — obtain from apollo_search_people results',
-  ),
+  person_id: z.string().describe('Apollo person ID — obtained from apollo_search_people results'),
 });
 
-export type FindEmailInput = z.infer<typeof findEmailSchema>;
+export type FindEmailParams = z.infer<typeof findEmailSchema>;
 
-interface FindEmailResponse {
-  person: {
-    id: string;
-    email: string | null;
-    email_status: string | null;
-    email_confidence: number | null;
-  };
-}
-
-export async function findEmail(
-  client: ApolloClient,
-  input: FindEmailInput,
+export async function handleFindEmail(
+  apiKey: string,
+  params: FindEmailParams
 ): Promise<string> {
-  const { data, rateLimits } =
-    await client.post<FindEmailResponse>(
-      '/people/match',
-      {
-        id: input.person_id,
-        reveal_personal_emails: false,
-      },
-    );
+  const result = await findEmail(apiKey, params);
+
+  if (result.error) {
+    return JSON.stringify({
+      error: result.error,
+      status: result.status,
+      ...(result.rateLimitRemaining !== undefined && {
+        rate_limit_remaining: result.rateLimitRemaining,
+      }),
+    });
+  }
+
+  const person = result.data?.person;
+  if (!person) {
+    return JSON.stringify({ error: 'Person not found.', status: 404 });
+  }
 
   return JSON.stringify({
-    person_id: data.person.id,
-    email: data.person.email,
-    email_status: data.person.email_status,
-    email_confidence: data.person.email_confidence,
-    rate_limits: rateLimits,
+    person_id: person.id,
+    email: person.email,
+    email_status: person.email_status,
+    found: !!person.email,
+    ...(result.rateLimitRemaining !== undefined && {
+      rate_limit_remaining: result.rateLimitRemaining,
+    }),
   });
 }

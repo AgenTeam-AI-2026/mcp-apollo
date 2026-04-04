@@ -1,128 +1,141 @@
-import { ApolloError, ApolloRateLimitInfo } from './types.js';
+import type {
+  ApolloPeopleSearchResponse,
+  ApolloPersonEnrichResponse,
+  ApolloCompaniesSearchResponse,
+  ApolloCompanyEnrichResponse,
+  ApolloJobPostingsResponse,
+  ApolloFindEmailResponse,
+  ApolloRateLimitInfo,
+} from "./types.js";
 
-const BASE_URL = 'https://api.apollo.io/api/v1';
+const APOLLO_BASE_URL = "https://api.apollo.io/api/v1";
 
-/**
- * Thin, typed wrapper around Apollo.io's REST API.
- * Handles auth, rate-limit parsing, and error normalisation.
- */
+export class ApolloApiError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly rateLimitInfo: ApolloRateLimitInfo
+  ) {
+    super(message);
+    this.name = "ApolloApiError";
+  }
+}
+
+function parseRateLimitInfo(headers: Headers): ApolloRateLimitInfo {
+  const remaining = headers.get("x-rate-limit-remaining");
+  const limit = headers.get("x-rate-limit-limit");
+  const resetAt = headers.get("x-rate-limit-reset");
+  return {
+    remaining: remaining !== null ? parseInt(remaining, 10) : null,
+    limit: limit !== null ? parseInt(limit, 10) : null,
+    resetAt,
+  };
+}
+
 export class ApolloClient {
   constructor(private readonly apiKey: string) {}
 
-  /**
-   * Parse rate-limit headers from an Apollo response.
-   */
-  private parseRateLimits(headers: Headers): ApolloRateLimitInfo {
-    return {
-      limit: this.headerInt(headers, 'x-rate-limit-limit'),
-      remaining: this.headerInt(headers, 'x-rate-limit-remaining'),
-      reset: this.headerInt(headers, 'x-rate-limit-reset'),
-    };
-  }
-
-  private headerInt(headers: Headers, name: string): number | null {
-    const val = headers.get(name);
-    if (val === null) return null;
-    const n = parseInt(val, 10);
-    return isNaN(n) ? null : n;
-  }
-
-  /**
-   * Core HTTP helper — used by all tool implementations.
-   */
-  async post<T>(
+  private async post<T>(
     path: string,
-    body: Record<string, unknown>,
-  ): Promise<{ data: T; rateLimits: ApolloRateLimitInfo }> {
-    const url = `${BASE_URL}${path}`;
-
-    const res = await fetch(url, {
-      method: 'POST',
+    body: Record<string, unknown>
+  ): Promise<{ data: T; rateLimitInfo: ApolloRateLimitInfo }> {
+    const response = await fetch(`${APOLLO_BASE_URL}${path}`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': this.apiKey,
-        'Cache-Control': 'no-cache',
+        "Content-Type": "application/json",
+        "x-api-key": this.apiKey,
       },
       body: JSON.stringify(body),
     });
-
-    const rateLimits = this.parseRateLimits(res.headers);
-
-    if (res.status === 401) {
-      throw new ApolloError(
-        'Invalid Apollo.io API key. Check your key and try again.',
-        401,
-        'UNAUTHORIZED',
-      );
-    }
-
-    if (res.status === 422) {
-      const text = await res.text();
-      throw new ApolloError(
-        `Apollo API validation error: ${text}`,
-        422,
-        'VALIDATION_ERROR',
-      );
-    }
-
-    if (res.status === 429) {
-      const resetIn = rateLimits.reset ?? 60;
-      throw new ApolloError(
-        `Apollo.io rate limit exceeded. Resets in ${resetIn}s. ` +
-          `Consider upgrading your Apollo plan for higher limits.`,
-        429,
-        'RATE_LIMITED',
-      );
-    }
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new ApolloError(
-        `Apollo API error ${res.status}: ${text}`,
-        res.status,
-        'API_ERROR',
-      );
-    }
-
-    const data = (await res.json()) as T;
-    return { data, rateLimits };
+    const rateLimitInfo = parseRateLimitInfo(response.headers);
+    await this.assertOk(response, rateLimitInfo);
+    return { data: (await response.json()) as T, rateLimitInfo };
   }
 
-  async get<T>(
+  private async get<T>(
     path: string,
-    params: Record<string, string>,
-  ): Promise<{ data: T; rateLimits: ApolloRateLimitInfo }> {
-    const url = new URL(`${BASE_URL}${path}`);
-    for (const [k, v] of Object.entries(params)) {
-      url.searchParams.set(k, v);
-    }
-
-    const res = await fetch(url.toString(), {
-      method: 'GET',
+    params: Record<string, string>
+  ): Promise<{ data: T; rateLimitInfo: ApolloRateLimitInfo }> {
+    const url = new URL(`${APOLLO_BASE_URL}${path}`);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    const response = await fetch(url.toString(), {
+      method: "GET",
       headers: {
-        'x-api-key': this.apiKey,
-        'Cache-Control': 'no-cache',
+        "Content-Type": "application/json",
+        "x-api-key": this.apiKey,
       },
     });
+    const rateLimitInfo = parseRateLimitInfo(response.headers);
+    await this.assertOk(response, rateLimitInfo);
+    return { data: (await response.json()) as T, rateLimitInfo };
+  }
 
-    const rateLimits = this.parseRateLimits(res.headers);
-
-    if (res.status === 401) {
-      throw new ApolloError('Invalid Apollo.io API key.', 401, 'UNAUTHORIZED');
-    }
-    if (res.status === 429) {
-      throw new ApolloError(
-        `Apollo.io rate limit exceeded. Remaining: ${rateLimits.remaining ?? 'unknown'}.`,
-        429,
-        'RATE_LIMITED',
+  private async assertOk(
+    response: Response,
+    rateLimitInfo: ApolloRateLimitInfo
+  ): Promise<void> {
+    if (response.ok) return;
+    if (response.status === 401) {
+      throw new ApolloApiError(
+        "Invalid Apollo.io API key. Verify your key at https://app.apollo.io/#/settings/integrations/api",
+        401,
+        rateLimitInfo
       );
     }
-    if (!res.ok) {
-      const text = await res.text();
-      throw new ApolloError(`Apollo API error ${res.status}: ${text}`, res.status);
+    if (response.status === 429) {
+      const resetMsg = rateLimitInfo.resetAt
+        ? ` Rate limit resets at: ${rateLimitInfo.resetAt}.`
+        : "";
+      throw new ApolloApiError(
+        `Apollo.io rate limit exceeded.${resetMsg} Free tier: 50 req/hour. Upgrade at https://app.apollo.io/#/settings/billing`,
+        429,
+        rateLimitInfo
+      );
     }
+    const text = await response.text().catch(() => "(no body)");
+    throw new ApolloApiError(
+      `Apollo.io API error ${response.status}: ${text}`,
+      response.status,
+      rateLimitInfo
+    );
+  }
 
-    const data = (await res.json()) as T;
-    return { data, rateLimits };
+  async searchPeople(
+    params: Record<string, unknown>
+  ): Promise<{ data: ApolloPeopleSearchResponse; rateLimitInfo: ApolloRateLimitInfo }> {
+    return this.post<ApolloPeopleSearchResponse>("/mixed_people/search", params);
+  }
+
+  async enrichPerson(
+    params: Record<string, unknown>
+  ): Promise<{ data: ApolloPersonEnrichResponse; rateLimitInfo: ApolloRateLimitInfo }> {
+    return this.post<ApolloPersonEnrichResponse>("/people/match", params);
+  }
+
+  async searchCompanies(
+    params: Record<string, unknown>
+  ): Promise<{ data: ApolloCompaniesSearchResponse; rateLimitInfo: ApolloRateLimitInfo }> {
+    return this.post<ApolloCompaniesSearchResponse>("/mixed_companies/search", params);
+  }
+
+  async enrichCompany(
+    params: Record<string, string>
+  ): Promise<{ data: ApolloCompanyEnrichResponse; rateLimitInfo: ApolloRateLimitInfo }> {
+    return this.get<ApolloCompanyEnrichResponse>("/organizations/enrich", params);
+  }
+
+  async getJobPostings(
+    organizationId: string,
+    jobTitles?: string[]
+  ): Promise<{ data: ApolloJobPostingsResponse; rateLimitInfo: ApolloRateLimitInfo }> {
+    const body: Record<string, unknown> = { organization_ids: [organizationId] };
+    if (jobTitles && jobTitles.length > 0) body.job_titles = jobTitles;
+    return this.post<ApolloJobPostingsResponse>("/job_postings/search", body);
+  }
+
+  async findEmail(
+    personId: string
+  ): Promise<{ data: ApolloFindEmailResponse; rateLimitInfo: ApolloRateLimitInfo }> {
+    return this.post<ApolloFindEmailResponse>("/people/reveal", { id: personId });
   }
 }

@@ -1,31 +1,40 @@
 {
   "name": "mcp-apollo",
-  "version": "0.1.0",
-  "description": "An open-source MCP server for Apollo.io — built for AgenTeam",
-  "license": "MIT",
-  "private": false,
-  "main": "dist/index.js",
+  "version": "1.0.0",
+  "description": "Open-source MCP server for Apollo.io — search people, enrich contacts, research companies, and find verified emails from your AI agents.",
   "scripts": {
     "dev": "wrangler dev",
-    "build": "tsc --noEmit && wrangler deploy --dry-run",
+    "build": "tsc --noEmit && echo 'TypeScript OK'",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.10.2"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250409.0",
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
-    "@vitest/coverage-v8": "^3.1.1",
-    "eslint": "^9.0.0",
-    "typescript": "^5.8.3",
-    "vitest": "^3.1.1",
-    "wrangler": "^4.10.0"
-  }
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8",
+    "wrangler": "^3.101.0",
+    "@vitest/coverage-v8": "^2.1.8"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AgenTeam-AI-2026/mcp-apollo.git"
+  },
+  "keywords": [
+    "mcp",
+    "apollo",
+    "apollo.io",
+    "sales-intelligence",
+    "cloudflare-workers",
+    "model-context-protocol",
+    "b2b",
+    "prospecting"
+  ]
 }

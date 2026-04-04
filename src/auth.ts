@@ -1,34 +1,18 @@
 /**
- * Extracts and validates the Apollo.io API key from the MCP request.
- *
- * The key is expected as a Bearer token in the Authorization header:
- *   Authorization: Bearer <apollo_api_key>
- *
- * The server never stores this key — it is used only for the duration
- * of the request and passed directly to Apollo's API.
+ * Bearer token extraction from the Authorization header.
+ * Customers pass their own Apollo.io API key — we never store it.
  */
-export function extractApiKey(request: Request): string | null {
-  const auth = request.headers.get('Authorization');
-  if (!auth) return null;
+export function extractBearerToken(request: Request): string | null {
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader) return null;
 
-  const parts = auth.split(' ');
-  if (parts.length !== 2 || parts[0]?.toLowerCase() !== 'bearer') return null;
+  const spaceIdx = authHeader.indexOf(" ");
+  if (spaceIdx === -1) return null;
 
-  const key = parts[1]?.trim();
-  if (!key || key.length === 0) return null;
+  const scheme = authHeader.slice(0, spaceIdx).toLowerCase();
+  const token = authHeader.slice(spaceIdx + 1).trim();
 
-  return key;
-}
+  if (scheme !== "bearer" || !token) return null;
 
-export function missingAuthResponse(): Response {
-  return new Response(
-    JSON.stringify({
-      error: 'Missing or invalid Authorization header.',
-      hint: 'Pass your Apollo.io API key as: Authorization: Bearer <your_api_key>',
-    }),
-    {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    },
-  );
+  return token;
 }
