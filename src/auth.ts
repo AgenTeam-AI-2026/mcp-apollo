@@ -1,34 +1,31 @@
+import { ApolloApiError } from './types.js';
+
 /**
- * Extracts and validates the Apollo.io API key from the MCP request.
- *
- * The key is expected as a Bearer token in the Authorization header:
- *   Authorization: Bearer <apollo_api_key>
- *
- * The server never stores this key — it is used only for the duration
- * of the request and passed directly to Apollo's API.
+ * Extracts the Bearer token from the Authorization header.
+ * Returns null if missing or malformed.
  */
 export function extractApiKey(request: Request): string | null {
-  const auth = request.headers.get('Authorization');
-  if (!auth) return null;
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) return null;
 
-  const parts = auth.split(' ');
+  const parts = authHeader.split(' ');
   if (parts.length !== 2 || parts[0]?.toLowerCase() !== 'bearer') return null;
 
-  const key = parts[1]?.trim();
-  if (!key || key.length === 0) return null;
+  const token = parts[1];
+  if (!token || token.trim() === '') return null;
 
-  return key;
+  return token.trim();
 }
 
-export function missingAuthResponse(): Response {
-  return new Response(
-    JSON.stringify({
-      error: 'Missing or invalid Authorization header.',
-      hint: 'Pass your Apollo.io API key as: Authorization: Bearer <your_api_key>',
-    }),
-    {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    },
-  );
+/**
+ * Builds a structured auth error for missing or invalid credentials.
+ */
+export function makeAuthError(): ApolloApiError {
+  return {
+    status: 401,
+    error: 'unauthorized',
+    message:
+      'Missing or invalid Apollo.io API key. ' +
+      'Pass your key as: Authorization: Bearer <your_apollo_api_key>',
+  };
 }
