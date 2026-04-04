@@ -1,27 +1,10 @@
-# Dependencies
 node_modules/
-
-# Build output
 dist/
-
-# Cloudflare Workers
 .wrangler/
 .dev.vars
-
-# Environment
+.dev.vars.*
+*.env
 .env
 .env.local
-.env.*.local
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Test output
 coverage/
+*.tsbuildinfo
