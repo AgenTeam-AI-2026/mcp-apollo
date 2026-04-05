@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.AgenTeam-AI-2026/mcp-apollo",
+  "description": "Self-hosted MCP server for Apollo.io — search people, enrich contacts, research companies, find emails, and pull job postings. Deploy to your own Cloudflare Workers account in 5 minutes.",
+  "repository": {
+    "url": "https://github.com/AgenTeam-AI-2026/mcp-apollo",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "transportType": "streamable-http",
+      "url": "https://mcp-apollo.YOUR-SUBDOMAIN.workers.dev/mcp"
+    }
+  ],
+  "license": "MIT"
+}
