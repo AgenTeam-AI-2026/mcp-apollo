@@ -1,16 +1,15 @@
 /**
  * mcp-apollo — Cloudflare Workers MCP server for Apollo.io
  *
- * Transport: Streamable HTTP (primary) with SSE fallback
+ * Transport: Streamable HTTP (primary)
  * Auth:      Bearer token (customer's Apollo.io API key)
  * License:   MIT
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { extractApiKey, missingAuthResponse } from './auth.js';
-import { ApolloClient } from './apollo-client.js';
-import { ApolloError } from './types.js';
+import { extractBearerToken, unauthorizedResponse } from './auth.js';
+import { ApolloClient, ApolloApiError } from './apollo-client.js';
 
 import { searchPeopleSchema, searchPeople } from './tools/search-people.js';
 import { enrichPersonSchema, enrichPerson } from './tools/enrich-person.js';
@@ -19,14 +18,14 @@ import { enrichCompanySchema, enrichCompany } from './tools/enrich-company.js';
 import { getJobPostingsSchema, getJobPostings } from './tools/get-job-postings.js';
 import { findEmailSchema, findEmail } from './tools/find-email.js';
 
-// ─── Helper ─────────────────────────────────────────────────────────────────
+// ─── Error helper ────────────────────────────────────────────────────────────
 
-function errorResponse(err: unknown): string {
-  if (err instanceof ApolloError) {
+function errorText(err: unknown): string {
+  if (err instanceof ApolloApiError) {
     return JSON.stringify({
       error: err.message,
-      code: err.apolloCode,
       status: err.statusCode,
+      rate_limits: err.rateLimitInfo,
     });
   }
   return JSON.stringify({
@@ -38,10 +37,7 @@ function errorResponse(err: unknown): string {
 
 function createMcpServer(apiKey: string): McpServer {
   const client = new ApolloClient(apiKey);
-  const server = new McpServer({
-    name: 'mcp-apollo',
-    version: '0.1.0',
-  });
+  const server = new McpServer({ name: 'mcp-apollo', version: '0.1.0' });
 
   server.tool(
     'apollo_search_people',
@@ -49,10 +45,9 @@ function createMcpServer(apiKey: string): McpServer {
     searchPeopleSchema.shape,
     async (input) => {
       try {
-        const result = await searchPeople(client, input);
-        return { content: [{ type: 'text', text: result }] };
+        return { content: [{ type: 'text' as const, text: await searchPeople(client, input) }] };
       } catch (err) {
-        return { content: [{ type: 'text', text: errorResponse(err) }], isError: true };
+        return { content: [{ type: 'text' as const, text: errorText(err) }], isError: true };
       }
     },
   );
@@ -63,10 +58,9 @@ function createMcpServer(apiKey: string): McpServer {
     enrichPersonSchema.shape,
     async (input) => {
       try {
-        const result = await enrichPerson(client, input);
-        return { content: [{ type: 'text', text: result }] };
+        return { content: [{ type: 'text' as const, text: await enrichPerson(client, input) }] };
       } catch (err) {
-        return { content: [{ type: 'text', text: errorResponse(err) }], isError: true };
+        return { content: [{ type: 'text' as const, text: errorText(err) }], isError: true };
       }
     },
   );
@@ -77,10 +71,9 @@ function createMcpServer(apiKey: string): McpServer {
     searchCompaniesSchema.shape,
     async (input) => {
       try {
-        const result = await searchCompanies(client, input);
-        return { content: [{ type: 'text', text: result }] };
+        return { content: [{ type: 'text' as const, text: await searchCompanies(client, input) }] };
       } catch (err) {
-        return { content: [{ type: 'text', text: errorResponse(err) }], isError: true };
+        return { content: [{ type: 'text' as const, text: errorText(err) }], isError: true };
       }
     },
   );
@@ -91,10 +84,9 @@ function createMcpServer(apiKey: string): McpServer {
     enrichCompanySchema.shape,
     async (input) => {
       try {
-        const result = await enrichCompany(client, input);
-        return { content: [{ type: 'text', text: result }] };
+        return { content: [{ type: 'text' as const, text: await enrichCompany(client, input) }] };
       } catch (err) {
-        return { content: [{ type: 'text', text: errorResponse(err) }], isError: true };
+        return { content: [{ type: 'text' as const, text: errorText(err) }], isError: true };
       }
     },
   );
@@ -105,10 +97,9 @@ function createMcpServer(apiKey: string): McpServer {
     getJobPostingsSchema.shape,
     async (input) => {
       try {
-        const result = await getJobPostings(client, input);
-        return { content: [{ type: 'text', text: result }] };
+        return { content: [{ type: 'text' as const, text: await getJobPostings(client, input) }] };
       } catch (err) {
-        return { content: [{ type: 'text', text: errorResponse(err) }], isError: true };
+        return { content: [{ type: 'text' as const, text: errorText(err) }], isError: true };
       }
     },
   );
@@ -119,10 +110,9 @@ function createMcpServer(apiKey: string): McpServer {
     findEmailSchema.shape,
     async (input) => {
       try {
-        const result = await findEmail(client, input);
-        return { content: [{ type: 'text', text: result }] };
+        return { content: [{ type: 'text' as const, text: await findEmail(client, input) }] };
       } catch (err) {
-        return { content: [{ type: 'text', text: errorResponse(err) }], isError: true };
+        return { content: [{ type: 'text' as const, text: errorText(err) }], isError: true };
       }
     },
   );
@@ -144,8 +134,8 @@ export default {
       });
     }
 
-    const apiKey = extractApiKey(request);
-    if (!apiKey) return missingAuthResponse();
+    const apiKey = extractBearerToken(request);
+    if (!apiKey) return unauthorizedResponse();
 
     const url = new URL(request.url);
     if (url.pathname === '/health') {
@@ -157,10 +147,10 @@ export default {
 
     const server = createMcpServer(apiKey);
     const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
+      sessionIdGenerator: () => crypto.randomUUID(),
     });
 
     await server.connect(transport);
-    return transport.handleRequest(request);
+    return await transport.handleRequest(request);
   },
 };

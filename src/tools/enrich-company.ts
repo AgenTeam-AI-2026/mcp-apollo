@@ -1,39 +1,26 @@
 import { z } from 'zod';
 import { ApolloClient } from '../apollo-client.js';
-import type { ApolloOrganization } from '../types.js';
 
-export const enrichCompanySchema = z
-  .object({
-    domain: z.string().optional().describe(
-      'Company domain, e.g. "stripe.com" — preferred identifier',
-    ),
-    name: z.string().optional().describe(
-      'Company name — used if domain is not available',
-    ),
-  })
-  .refine((d) => d.domain || d.name, {
-    message: 'Provide at least a domain or a company name',
-  });
+export const enrichCompanySchema = z.object({
+  domain: z.string().optional().describe('Company domain, e.g. "stripe.com" — preferred identifier'),
+  name: z.string().optional().describe('Company name — used if domain is not available'),
+});
 
 export type EnrichCompanyInput = z.infer<typeof enrichCompanySchema>;
-
-interface EnrichCompanyResponse {
-  organization: ApolloOrganization;
-}
 
 export async function enrichCompany(
   client: ApolloClient,
   input: EnrichCompanyInput,
 ): Promise<string> {
-  const { data, rateLimits } =
-    await client.post<EnrichCompanyResponse>(
-      '/organizations/enrich',
-      {
-        domain: input.domain,
-        name: input.name,
-      },
-    );
+  if (!input.domain && !input.name) {
+    return JSON.stringify({ error: 'Provide at least a domain or a company name' });
+  }
 
+  const params: Record<string, string> = {};
+  if (input.domain) params['domain'] = input.domain;
+  if (input.name) params['name'] = input.name;
+
+  const { data, rateLimitInfo } = await client.enrichCompany(params);
   const o = data.organization;
 
   return JSON.stringify({
@@ -43,7 +30,6 @@ export async function enrichCompany(
       domain: o.primary_domain,
       website: o.website_url,
       linkedin_url: o.linkedin_url,
-      twitter_url: o.twitter_url,
       description: o.short_description,
       industry: o.industry,
       headcount: o.estimated_num_employees,
@@ -53,10 +39,8 @@ export async function enrichCompany(
       last_funding_date: o.latest_funding_round_date,
       technologies: o.technologies,
       keywords: o.keywords,
-      phone: o.phone,
-      location:
-        [o.city, o.country].filter(Boolean).join(', ') || null,
+      location: [o.city, o.country].filter(Boolean).join(', ') || null,
     },
-    rate_limits: rateLimits,
+    rate_limits: rateLimitInfo,
   });
 }
