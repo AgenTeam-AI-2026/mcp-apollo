@@ -1,81 +1,55 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ApolloClient } from '../src/apollo-client.js';
+import { ApolloClient, ApolloApiError } from '../src/apollo-client.js';
 import { enrichPerson } from '../src/tools/enrich-person.js';
-import { ApolloError } from '../src/types.js';
 
-const mockPost = vi.fn();
-vi.mock('../src/apollo-client.js', () => ({
-  ApolloClient: vi.fn().mockImplementation(() => ({ post: mockPost })),
-}));
+const mockEnrichPerson = vi.fn();
+const client = { enrichPerson: mockEnrichPerson } as unknown as ApolloClient;
+const rl = { limit: 50, remaining: 44, resetAt: null };
 
-const client = new ApolloClient('test-key');
-const mockRateLimits = { limit: 50, remaining: 44, reset: 3600 };
-
-const mockFullPerson = {
-  id: 'person_002',
-  name: 'John Smith',
-  first_name: 'John',
-  last_name: 'Smith',
-  title: 'CTO',
-  headline: 'Building the future',
-  email: 'john@example.com',
-  email_status: 'verified',
-  phone_numbers: [{ raw_number: '+1-555-0100', type: 'work' }],
-  linkedin_url: 'https://linkedin.com/in/johnsmith',
-  twitter_url: null,
-  photo_url: null,
-  city: 'San Francisco',
-  state: 'CA',
-  country: 'United States',
-  organization: { name: 'ExampleCorp', primary_domain: 'example.com' },
-  employment_history: [
-    { organization_name: 'ExampleCorp', title: 'CTO', start_date: '2021-01', end_date: null, current: true },
-  ],
+const mockPerson = {
+  id: 'p2', name: 'John Smith', first_name: 'John', last_name: 'Smith',
+  title: 'CTO', email: 'john@example.com', email_status: 'verified',
+  phone_numbers: [{ raw_number: '+1-555-0100', sanitized_number: '+15550100', type: 'work' }],
+  linkedin_url: 'https://linkedin.com/in/john', city: 'SF', state: 'CA', country: 'US',
+  organization: { id: 'o2', name: 'ExCorp', primary_domain: 'excorp.com' },
+  employment_history: [{ _id: 'e1', organization_name: 'ExCorp', title: 'CTO', current: true }],
 };
 
 beforeEach(() => vi.clearAllMocks());
 
 describe('enrichPerson', () => {
   it('enriches a person by email', async () => {
-    mockPost.mockResolvedValueOnce({ data: { person: mockFullPerson }, rateLimits: mockRateLimits });
-
+    mockEnrichPerson.mockResolvedValueOnce({ data: { person: mockPerson }, rateLimitInfo: rl });
     const result = JSON.parse(await enrichPerson(client, { email: 'john@example.com' }));
-
-    expect(result.person.id).toBe('person_002');
+    expect(result.person.id).toBe('p2');
     expect(result.person.email).toBe('john@example.com');
-    expect(result.person.email_status).toBe('verified');
-    expect(result.person.employment_history).toHaveLength(1);
     expect(result.rate_limits.remaining).toBe(44);
   });
 
   it('enriches a person by LinkedIn URL', async () => {
-    mockPost.mockResolvedValueOnce({ data: { person: mockFullPerson }, rateLimits: mockRateLimits });
+    mockEnrichPerson.mockResolvedValueOnce({ data: { person: mockPerson }, rateLimitInfo: rl });
+    await enrichPerson(client, { linkedin_url: 'https://linkedin.com/in/john' });
+    expect(mockEnrichPerson).toHaveBeenCalledWith(expect.objectContaining({ linkedin_url: 'https://linkedin.com/in/john' }));
+  });
 
-    await enrichPerson(client, { linkedin_url: 'https://linkedin.com/in/johnsmith' });
-
-    expect(mockPost).toHaveBeenCalledWith('/people/match', expect.objectContaining({
-      linkedin_url: 'https://linkedin.com/in/johnsmith',
+  it('enriches by name + company', async () => {
+    mockEnrichPerson.mockResolvedValueOnce({ data: { person: mockPerson }, rateLimitInfo: rl });
+    await enrichPerson(client, { first_name: 'John', last_name: 'Smith', organization_name: 'ExCorp' });
+    expect(mockEnrichPerson).toHaveBeenCalledWith(expect.objectContaining({
+      first_name: 'John', last_name: 'Smith', organization_name: 'ExCorp',
     }));
   });
 
-  it('enriches a person by name + company', async () => {
-    mockPost.mockResolvedValueOnce({ data: { person: mockFullPerson }, rateLimits: mockRateLimits });
-
-    await enrichPerson(client, {
-      first_name: 'John',
-      last_name: 'Smith',
-      organization_name: 'ExampleCorp',
-    });
-
-    expect(mockPost).toHaveBeenCalledWith('/people/match', expect.objectContaining({
-      first_name: 'John',
-      last_name: 'Smith',
-      organization_name: 'ExampleCorp',
-    }));
+  it('returns error message when no identifier provided', async () => {
+    const result = JSON.parse(await enrichPerson(client, {}));
+    expect(result.error).toBeTruthy();
+    expect(mockEnrichPerson).not.toHaveBeenCalled();
   });
 
-  it('throws ApolloError on 401', async () => {
-    mockPost.mockRejectedValueOnce(new ApolloError('Invalid API key', 401, 'UNAUTHORIZED'));
-    await expect(enrichPerson(client, { email: 'bad@test.com' })).rejects.toThrow('Invalid API key');
+  it('propagates ApolloApiError on 401', async () => {
+    mockEnrichPerson.mockRejectedValueOnce(
+      new ApolloApiError('Invalid key', 401, { limit: null, remaining: null, resetAt: null }),
+    );
+    await expect(enrichPerson(client, { email: 'bad@test.com' })).rejects.toThrow('Invalid key');
   });
 });

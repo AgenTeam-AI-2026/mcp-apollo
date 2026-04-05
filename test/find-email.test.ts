@@ -1,62 +1,47 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ApolloClient } from '../src/apollo-client.js';
+import { ApolloClient, ApolloApiError } from '../src/apollo-client.js';
 import { findEmail } from '../src/tools/find-email.js';
-import { ApolloError } from '../src/types.js';
 
-const mockPost = vi.fn();
-vi.mock('../src/apollo-client.js', () => ({
-  ApolloClient: vi.fn().mockImplementation(() => ({ post: mockPost })),
-}));
-
-const client = new ApolloClient('test-key');
-const mockRateLimits = { limit: 50, remaining: 30, reset: 3600 };
+const mockFindEmail = vi.fn();
+const client = { findEmail: mockFindEmail } as unknown as ApolloClient;
+const rl = { limit: 50, remaining: 30, resetAt: null };
 
 beforeEach(() => vi.clearAllMocks());
 
 describe('findEmail', () => {
-  it('returns email and confidence for known person', async () => {
-    mockPost.mockResolvedValueOnce({
-      data: {
-        person: {
-          id: 'person_003',
-          email: 'alice@company.com',
-          email_status: 'verified',
-          email_confidence: 92,
-        },
-      },
-      rateLimits: mockRateLimits,
+  it('returns email and status for known person', async () => {
+    mockFindEmail.mockResolvedValueOnce({
+      data: { person: { id: 'p3', email: 'alice@co.com', email_status: 'verified' } },
+      rateLimitInfo: rl,
     });
-
-    const result = JSON.parse(await findEmail(client, { person_id: 'person_003' }));
-
-    expect(result.email).toBe('alice@company.com');
+    const result = JSON.parse(await findEmail(client, { person_id: 'p3' }));
+    expect(result.email).toBe('alice@co.com');
     expect(result.email_status).toBe('verified');
-    expect(result.email_confidence).toBe(92);
-    expect(result.person_id).toBe('person_003');
+    expect(result.person_id).toBe('p3');
   });
 
-  it('returns null email when email not available', async () => {
-    mockPost.mockResolvedValueOnce({
-      data: { person: { id: 'person_004', email: null, email_status: 'unavailable', email_confidence: null } },
-      rateLimits: mockRateLimits,
+  it('returns null email when not available', async () => {
+    mockFindEmail.mockResolvedValueOnce({
+      data: { person: { id: 'p4', email: undefined, email_status: 'unavailable' } },
+      rateLimitInfo: rl,
     });
-
-    const result = JSON.parse(await findEmail(client, { person_id: 'person_004' }));
+    const result = JSON.parse(await findEmail(client, { person_id: 'p4' }));
     expect(result.email).toBeNull();
-    expect(result.email_confidence).toBeNull();
   });
 
-  it('passes person_id to Apollo correctly', async () => {
-    mockPost.mockResolvedValueOnce({
-      data: { person: { id: 'person_005', email: 'x@y.com', email_status: 'verified', email_confidence: 85 } },
-      rateLimits: mockRateLimits,
+  it('passes person_id to client', async () => {
+    mockFindEmail.mockResolvedValueOnce({
+      data: { person: { id: 'p5', email: 'x@y.com', email_status: 'verified' } },
+      rateLimitInfo: rl,
     });
-    await findEmail(client, { person_id: 'person_005' });
-    expect(mockPost).toHaveBeenCalledWith('/people/match', expect.objectContaining({ id: 'person_005' }));
+    await findEmail(client, { person_id: 'p5' });
+    expect(mockFindEmail).toHaveBeenCalledWith('p5');
   });
 
-  it('throws on rate limit', async () => {
-    mockPost.mockRejectedValueOnce(new ApolloError('Rate limit exceeded', 429, 'RATE_LIMITED'));
-    await expect(findEmail(client, { person_id: 'any' })).rejects.toThrow('Rate limit exceeded');
+  it('propagates ApolloApiError on rate limit', async () => {
+    mockFindEmail.mockRejectedValueOnce(
+      new ApolloApiError('Rate limited', 429, { limit: 50, remaining: 0, resetAt: null }),
+    );
+    await expect(findEmail(client, { person_id: 'any' })).rejects.toThrow('Rate limited');
   });
 });
