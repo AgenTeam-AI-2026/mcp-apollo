@@ -1,13 +1,14 @@
 /**
  * mcp-apollo — Cloudflare Workers MCP server for Apollo.io
  *
- * Transport: Streamable HTTP (primary)
+ * Transport: Streamable HTTP via fetch-to-node bridge
  * Auth:      Bearer token (customer's Apollo.io API key)
  * License:   MIT
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { toFetchResponse, toReqRes } from 'fetch-to-node';
 import { extractBearerToken, unauthorizedResponse } from './auth.js';
 import { ApolloClient, ApolloApiError } from './apollo-client.js';
 
@@ -145,12 +146,20 @@ export default {
       );
     }
 
+    // Bridge web standard Request → Node.js IncomingMessage/ServerResponse
+    const { req, res } = toReqRes(request);
+    const body = await request.json().catch(() => null);
+
     const server = createMcpServer(apiKey);
     const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => crypto.randomUUID(),
+      sessionIdGenerator: undefined, // stateless per-request
     });
 
+    transport.onerror = (err) => console.error('[mcp-apollo] transport error:', err);
+
     await server.connect(transport);
-    return await transport.handleRequest(request);
+    await transport.handleRequest(req, res, body);
+
+    return toFetchResponse(res);
   },
 };
